@@ -1,4 +1,5 @@
 import os
+import random
 from pathlib import Path
 from video_analyzer import VideoAnalyzer
 from audio_processor import AudioProcessor
@@ -37,10 +38,15 @@ def main():
     # Setup
     setup_directories()
     
-    # Verifica API key
-    if not config.OPENROUTER_API_KEY:
-        print("⚠️  OPENROUTER_API_KEY não configurada no .env")
-        print("Continuando sem análise IA avançada...")
+    # Verifica configuração de IA
+    if config.USE_AI_ANALYSIS:
+        if not config.OPENROUTER_API_KEY:
+            print("⚠️  USE_AI_ANALYSIS está ativado, mas OPENROUTER_API_KEY não configurada no .env")
+            print("Continuando sem análise IA avançada...")
+        else:
+            print("🤖 Análise com IA ativada")
+    else:
+        print("💡 Usando análise local (sem IA) - grátis e rápido")
     
     # Analisa vídeo padrão
     padrao_videos = get_video_files(config.PADRAO_DIR)
@@ -78,18 +84,35 @@ def main():
     
     print(f"\n🎥 Encontrados {len(input_videos)} vídeo(s) para compilar")
     
-    # Detecta beats na música
+    # Processa áudio
     audio_proc = AudioProcessor()
-    beats = audio_proc.detect_beats(custom_audio)
-    audio_duration = audio_proc.get_audio_duration(custom_audio)
-    print(f"   Duração da música: {audio_duration:.1f}s")
-    print(f"   Encontrados {len(beats)} pontos de corte")
+    full_audio_duration = audio_proc.get_audio_duration(custom_audio)
+    print(f"   Duração total da música: {full_audio_duration:.1f}s")
     
-    # Se tem muitos vídeos, ranqueia e seleciona os melhores
+    # Encontra o melhor trecho da música
+    print(f"\n🎵 Procurando melhor trecho da música...")
+    best_segment = audio_proc.find_best_segment(custom_audio, target_duration=60)
+    
+    if best_segment:
+        print(f"   ✓ Melhor trecho encontrado: {best_segment['start']:.1f}s - {best_segment['end']:.1f}s")
+        print(f"   ✓ Duração: {best_segment['duration']:.1f}s (energia: {best_segment['avg_energy']:.3f})")
+        audio_start = best_segment['start']
+        audio_duration = best_segment['duration']
+    else:
+        print(f"   ⚠️  Não foi possível encontrar melhor trecho, usando música completa")
+        audio_start = 0
+        audio_duration = full_audio_duration
+    
+    # Detecta beats no trecho selecionado (ajusta os beats para o trecho)
+    beats = audio_proc.detect_beats(custom_audio)
+    # Filtra beats que estão dentro do trecho selecionado e ajusta para começar em 0
+    beats = [beat - audio_start for beat in beats if audio_start <= beat < audio_start + audio_duration]
+    print(f"   Encontrados {len(beats)} pontos de corte no trecho selecionado")
+    
+    # Se tem muitos vídeos, seleciona aleatoriamente
     if len(input_videos) > config.MAX_CLIPS_IN_COMPILATION:
-        print(f"\n⚡ Muitos vídeos! Selecionando os {config.MAX_CLIPS_IN_COMPILATION} melhores...")
-        ranked_videos = analyzer.rank_videos(input_videos, config.MAX_CLIPS_IN_COMPILATION)
-        selected_videos = [v['path'] for v in ranked_videos]
+        print(f"\n⚡ Muitos vídeos! Selecionando {config.MAX_CLIPS_IN_COMPILATION} aleatoriamente...")
+        selected_videos = random.sample(input_videos, config.MAX_CLIPS_IN_COMPILATION)
     else:
         selected_videos = input_videos
     
@@ -120,7 +143,7 @@ def main():
     
     # Cria compilação
     print(f"\n🎬 Criando compilação com {len(best_clips)} clipes...")
-    editor = VideoEditor(pattern, beats, custom_audio)
+    editor = VideoEditor(pattern, beats, custom_audio, audio_start=audio_start, audio_duration=audio_duration)
     output_path = os.path.join(config.OUTPUT_DIR, "reel_compilado.mp4")
     
     editor.create_compilation(best_clips, output_path, audio_duration)

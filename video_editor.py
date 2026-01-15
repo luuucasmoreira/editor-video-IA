@@ -8,10 +8,12 @@ import config
 import numpy as np
 
 class VideoEditor:
-    def __init__(self, pattern_analysis, beat_times, custom_audio=None):
+    def __init__(self, pattern_analysis, beat_times, custom_audio=None, audio_start=0, audio_duration=None):
         self.pattern = pattern_analysis
         self.beats = beat_times
         self.custom_audio = custom_audio
+        self.audio_start = audio_start  # Início do trecho de áudio a usar
+        self.audio_duration = audio_duration  # Duração do trecho de áudio
     
     def crop_to_reels(self, clip):
         """Converte vídeo para formato Reels 9:16"""
@@ -165,6 +167,12 @@ class VideoEditor:
         print(f"   🎵 Aplicando música")
         audio_clip = AudioFileClip(self.custom_audio)
         
+        # Extrai apenas o trecho selecionado da música
+        if self.audio_start > 0 or (self.audio_duration and self.audio_duration < audio_clip.duration):
+            end_time = self.audio_start + (self.audio_duration or audio_clip.duration)
+            audio_clip = audio_clip.subclipped(self.audio_start, min(end_time, audio_clip.duration))
+        
+        # Ajusta duração do áudio para match com vídeo
         if audio_clip.duration > final_clip.duration:
             audio_clip = audio_clip.subclipped(0, final_clip.duration)
         

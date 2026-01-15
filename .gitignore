@@ -7,4 +7,4 @@ musica/*
 __pycache__/
 *.pyc
 .venv/
-
+*.rar

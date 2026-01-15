@@ -25,5 +25,5 @@ MIN_MOMENT_DURATION = 3.0  # duração mínima de um momento extraído
 MAX_CLIPS_IN_COMPILATION = 15  # máximo de clipes no compilado final
 
 # Análise de vídeo
-USE_AI_ANALYSIS = False  # True = usa IA (custa $), False = análise local (grátis)
+USE_AI_ANALYSIS = True  # True = usa IA (custa $), False = análise local (grátis)
 SAMPLE_FRAMES = 3  # número de frames para analisar por vídeo

@@ -11,7 +11,8 @@ import numpy as np
 
 class VideoAnalyzer:
     def __init__(self):
-        if config.OPENROUTER_API_KEY:
+        # Só inicializa cliente IA se a flag estiver ativada E tiver API key
+        if config.USE_AI_ANALYSIS and config.OPENROUTER_API_KEY:
             self.client = OpenAI(
                 api_key=config.OPENROUTER_API_KEY,
                 base_url=config.OPENROUTER_BASE_URL
