@@ -1,0 +1,10 @@
+.env
+videos/*
+output/*
+padrao/*
+outrosvideos/*
+musica/*
+__pycache__/
+*.pyc
+.venv/
+

@@ -1,0 +1,20 @@
+[project]
+name = "church-reels-editor"
+version = "0.1.0"
+description = "Automação de edição de vídeos de culto para Instagram Reels"
+requires-python = ">=3.10"
+dependencies = [
+    "moviepy>=1.0.3",
+    "openai>=1.12.0",
+    "python-dotenv>=1.0.0",
+    "pillow>=10.0.0",
+    "numpy>=1.24.0",
+    "imageio-ffmpeg>=0.4.9",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]

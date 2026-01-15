@@ -1,0 +1,6 @@
+moviepy>=1.0.3
+openai>=1.12.0
+python-dotenv>=1.0.0
+pillow>=10.0.0
+numpy>=1.24.0
+imageio-ffmpeg>=0.4.9
