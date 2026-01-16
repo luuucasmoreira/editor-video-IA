@@ -1,11 +1,12 @@
 try:
-    from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips, CompositeVideoClip
+    from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips, CompositeVideoClip, ImageClip
 except ImportError:
-    from moviepy import VideoFileClip, AudioFileClip, concatenate_videoclips, CompositeVideoClip
+    from moviepy import VideoFileClip, AudioFileClip, concatenate_videoclips, CompositeVideoClip, ImageClip
 
 from pathlib import Path
 import config
 import numpy as np
+import os
 
 class VideoEditor:
     def __init__(self, pattern_analysis, beat_times, custom_audio=None, audio_start=0, audio_duration=None):
@@ -34,6 +35,37 @@ class VideoEditor:
         
         # Usa new_size (com underscore)
         return clip.resized(new_size=(config.REELS_WIDTH, config.REELS_HEIGHT))
+    
+    def add_logo_at_end(self, clip, logo_path):
+        """Adiciona logo no canto inferior direito nos últimos segundos do vídeo"""
+        try:
+            # Carrega a logo
+            logo = ImageClip(logo_path)
+            
+            # Redimensiona logo para 20% da largura do vídeo
+            logo_width = int(config.REELS_WIDTH * 0.2)
+            logo = logo.resized(width=logo_width)
+            
+            # Posiciona no canto inferior direito com margem
+            margin = 30
+            logo_x = config.REELS_WIDTH - logo.w - margin
+            logo_y = config.REELS_HEIGHT - logo.h - margin
+            
+            # Define quando a logo aparece (últimos X segundos)
+            logo_start = max(0, clip.duration - config.LOGO_DURATION)
+            logo = logo.with_start(logo_start).with_duration(config.LOGO_DURATION)
+            logo = logo.with_position((logo_x, logo_y))
+            
+            # Adiciona fade in/out suave
+            logo = logo.crossfadein(0.3).crossfadeout(0.3)
+            
+            # Sobrepõe logo no vídeo
+            final_clip = CompositeVideoClip([clip, logo])
+            
+            return final_clip
+        except Exception as e:
+            print(f"      ⚠️  Erro ao adicionar logo: {e}")
+            return clip
     
     def create_cuts(self, clip):
         """Cria cortes suaves baseados nos beats"""
@@ -137,7 +169,15 @@ class VideoEditor:
             original_clips.append(clip)  # Guarda para fechar depois
             
             # Extrai o melhor momento
-            subclip = clip.subclipped(clip_info['start'], clip_info['end'])
+            start_time = clip_info['start']
+            end_time = min(clip_info['end'], start_time + config.MAX_CLIP_DURATION)
+            
+            subclip = clip.subclipped(start_time, end_time)
+            
+            # Aplica slow motion de 0.8x
+            print(f"      Aplicando slow motion ({config.SLOW_MOTION_SPEED}x)")
+            # MoviePy 2.x usa with_speed_scaled (fator de velocidade)
+            subclip = subclip.with_speed_scaled(config.SLOW_MOTION_SPEED)
             
             # Converte para formato Reels
             subclip = self.crop_to_reels(subclip)
@@ -148,20 +188,10 @@ class VideoEditor:
         print(f"   Concatenando clipes...")
         final_clip = concatenate_videoclips(all_clips, method="compose")
         
-        # Ajusta duração para match com música
+        # Ajusta duração para match com música (se necessário, corta o vídeo)
         if final_clip.duration > audio_duration:
-            # Acelera levemente se necessário
-            speed_factor = final_clip.duration / audio_duration
-            if speed_factor <= 1.3:  # Máximo 30% mais rápido
-                final_clip = final_clip.speedx(speed_factor)
-            else:
-                # Corta se muito longo
-                final_clip = final_clip.subclipped(0, audio_duration)
-        elif final_clip.duration < audio_duration:
-            # Desacelera levemente se necessário
-            speed_factor = final_clip.duration / audio_duration
-            if speed_factor >= 0.8:  # Máximo 20% mais lento
-                final_clip = final_clip.speedx(speed_factor)
+            print(f"   ✂️  Ajustando duração do vídeo final: {final_clip.duration:.1f}s -> {audio_duration:.1f}s")
+            final_clip = final_clip.subclipped(0, audio_duration)
         
         # Adiciona música
         print(f"   🎵 Aplicando música")
@@ -177,6 +207,14 @@ class VideoEditor:
             audio_clip = audio_clip.subclipped(0, final_clip.duration)
         
         final_clip = final_clip.with_audio(audio_clip)
+        
+        # Adiciona logo no final se existir
+        logo_path = os.path.join(config.FINAL_DIR, "logo.png")
+        if os.path.exists(logo_path):
+            print(f"   🎨 Adicionando logo no final do vídeo...")
+            final_clip = self.add_logo_at_end(final_clip, logo_path)
+        else:
+            print(f"   ⚠️  Logo não encontrada em {logo_path}")
         
         # Exporta
         print(f"   💾 Exportando vídeo final...")
